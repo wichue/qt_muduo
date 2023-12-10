@@ -1,3 +1,77 @@
+//chw
+
+net/文件夹
+class Acceptor : noncopyable，成员：EventLoop* loop_、Socket acceptSocket_、Channel acceptChannel_、NewConnectionCallback，接口：listen、handleRead，接受接入的TCP连接。
+class Buffer : public muduo::copyable，成员：std::vector buffer_、readerIndex_、writerIndex_，对读写内存的封装。
+Callbacks.h，各种回调函数 std::function 模板定义。
+class Channel : noncopyable，成员：readCallback_、writeCallback_、closeCallback_、errorCallback_，fd的事件和回调管理。
+class Connector : noncopyable，成员：InetAddress serverAddr_，std::unique_ptr channel_，NewConnectionCallback，States，tcp连接器，tcp非阻塞connect操作。
+Endian.h，字节序转换接口，例：hostToNetwork32。
+
+class Poller : noncopyable，抽象类，接口：poll，updateChannel，成员：ChannelMap channels_，EventLoop* ownerLoop_。
+class EPollPoller : public Poller，epoll_wait 监听事件，把 Channel 传入epoll参数，由上层 EventLoop 处理 Channel 的事件。
+class PollPoller : public Poller，与 EPollPoller 类似，使用的是 ::poll。
+class EventLoop : noncopyable，成员：std::unique_ptr poller_，std::unique_ptr timerQueue_，std::vector pendingFunctors_，接口：线程主循环 loop（处理监听的网络fd、定时器fd，runInLoop 加入的异步任务队列），为外部调用提供接口。
+class EventLoopThread : noncopyable，成员：EventLoop* loop_，Thread thread_，创建线程，并把 EventLoop 主循环放在线程里执行。
+class EventLoopThreadPool : noncopyable，成员：std::vector<std::unique_ptr> threads_，std::vector<EventLoop*> loops_，创建并管理 EventLoopThread 线程池，提供接口返回 EventLoop 。
+
+class InetAddress : public muduo::copyable，成员：struct sockaddr_in addr_，struct sockaddr_in6 addr6_，对网络地址的封装，支持ipv4和ipv6。
+
+class Socket : noncopyable，成员：const int sockfd_，接口：listen、bindAddress、accept，和一些参数设置，是对 socket fd 常用接口的封装。
+SocketsOps.h，socket 系统调用接口的封装，全局接口。
+class TcpConnection : noncopyable，成员：std::unique_ptr socket_、std::unique_ptr channel_、InetAddress localAddr_、peerAddr_、Buffer inputBuffer_、outputBuffer_，TCP连接操作，包括数据的发送和接收。
+class TcpClient : noncopyable，成员：ConnectorPtr connector_，TcpConnectionPtr connection_，tcp客户端的封装，接口：connect，disconnect。
+class TcpServer : noncopyable，成员：std::unique_ptr acceptor_，std::shared_ptr threadPool_，ConnectionMap connections_，tcp服务端，创建 EventLoopThreadPool 线程池，启动监听，把接入的tcp客户端平均分配到线程池。
+
+class Timer : noncopyable，成员：TimerCallback callback_、Timestamp expiration_、double interval_，定义定时器，管理回调、定时触发等。
+class TimerId : public muduo::copyable，成员：Timer* timer_、int64_t sequence_，对 Timer 的封装。
+class TimerQueue : noncopyable，成员：EventLoop* loop_、const int timerfd_、TimerList timers_、Channel timerfdChannel_，接口：addTimer、cancel，在 EventLoop 线程管理定时器。
+
+class ZlibInputStream : noncopyable
+class ZlibOutputStream : noncopyable，输入为zlib压缩数据，输出未压缩数据。
+
+http/
+class HttpRequest : public muduo::copyable，成员：Method method_、Version version_、path_、headers_，保存http请求的状态信息，提供设置和查询接口。
+class HttpResponse : public muduo::copyable，成员：std::map<string, string> headers_、HttpStatusCode statusCode_、string body_，保存http响应状态信息，包括头部、消息体、状态等。
+class HttpContext : public muduo::copyable，成员：HttpRequestParseState state_、HttpRequest request_，接口：parseRequest，解析http请求。
+class HttpServer : noncopyable，成员：TcpServer server_，httpCallback_，接口：onConnection、onMessage、onRequest，一个提供简单功能的http服务端。
+
+inspect/
+class PerformanceInspector : noncopyable，基于gperftools的性能监测接口。
+class ProcessInspector : noncopyable，进程数据监测接口，进程号，线程，打开的文件描述符等。
+class SystemInspector : noncopyable，操作系统信息监测接口，系统版本，cpu信息，cpu状态等。
+class Inspector : noncopyable，成员：HttpServer server_，ProcessInspector，PerformanceInspector，SystemInspector，std::map<string, CommandList> modules_，std::map<string, HelpList> helps_，提供http接口查询系统监测数据。
+
+base/
+class AsyncLogging : noncopyable，异步日志。
+Atomic.h，对原子整型数据的封装（C++11标准已经接入原子数据）。
+class BlockingQueue : noncopyable，一个线程安全的阻塞任务队列，成员：queue_，mutex_，接口：put、take，当队列为空时，条件变量wait等待。
+class BoundedBlockingQueue : noncopyable，成员：BlockingQueueboost::circular_buffer<T>  queue_，与 BlockingQueue 类似，是大小有限制的环形队列。
+class Condition : noncopyable，成员：pthread_cond_t pcond_、MutexLock，对条件变量的封装。
+class copyable，可复制的基类。
+class CountDownLatch : noncopyable，条件变量实现的计数器，计数变为0时唤醒wait。
+CurrentThread.h，当前线程的一些信息，线程名、线程号、线程调用栈（backtrace）等。
+class Date : public muduo::copyable，对日期的封装（年/月/日）。
+class Exception : public std::exception，对异常 std::exception 的封装，特点是可以打印调用栈（CurrentThread::stackTrace）。
+FileUtil.h，文件读写，class ReadSmallFile，class AppendFile 。
+class GzipFile : noncopyable，zlib压缩解压缩的封装。
+class LogFile : noncopyable，写日志的日志文件。
+Logging.h，提供 LOG_TRACE、LOG_INFO等记录日志接口。
+LogStream.h，日志格式化，重载operator<<等。
+Mutex.h，封装了 class MutexLock，class MutexLockGuard 类，框架内基本都是使用这两个互斥锁类。
+class noncopyable，不允许拷贝基类，delete 了复制构造和拷贝构造。
+ProcessInfo.h，进程信息查询接口，进程号，用户名，主机IP，线程数量，线程状态，可执行文件路径等。
+class Singleton : noncopyable，pthread_once 实现的线程安全的单例类。
+StringPiece.h，字符串操作封装。
+class Thread : noncopyable，pthread_create 创建线程，bind 指定线程处理函数。
+class ThreadLocal : noncopyable，pthread_key_t 线程变量封装，线程私有的全局变量。
+class ThreadLocalSingleton : noncopyable，成员：static __thread T* t_value_，线程单例模式，每个线程都有一个该单例的实例。
+class ThreadPool : noncopyable，线程池，创建指定数量的线程，从一个任务队列阻塞地取任务执行，线程安全。
+class Timestamp，时间戳，没有使用线程做时间同步，每次调用 gettimeofday 获取当前时间。
+TimeZone.h，时区的封装。
+WeakCallback.h，弱回调，传递智能指针弱引用 std::weak_ptr ，回调时如果 lock() 强引用成功则执行回调，否则不执行回调。
+//chw
+
 Muduo is a multithreaded C++ network library based on
 the reactor pattern.
 
